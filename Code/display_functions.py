@@ -21,6 +21,7 @@ Display Sentinel Data
 
 def displayData(sentinelsat_options: dict):
 
+    cwd = os.getcwd()
     os.chdir('s3_data')
 
     path_to_folders = glob.glob('*.SEN3')
@@ -80,6 +81,13 @@ def displayData(sentinelsat_options: dict):
         plt.colorbar()
         plt.show()
 
+    os.chdir(cwd)
+
+
+"""
+Display MIR Band with detected fire pixels
+"""
+
 
 def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max': 24, 'lat_min': 38, 'lat_max': 40}, show=False):
 
@@ -93,7 +101,7 @@ def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max':
     for folder in path_to_folders:
         print(folder)
 
-    # Go into each folder and calculate threshold for each product
+    # Go into each folder and plot
     print('\nDisplaying Initial MODIS Thresholds for Products:')
     for folder in path_to_folders:
 
@@ -105,6 +113,7 @@ def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max':
         lat = np.load(os.path.join(folder, 'latitude_fn.npy'))
         lon = np.load(os.path.join(folder, 'longitude_fn.npy'))
 
+        # Make Figure
         plt.figure(figsize=(8, 8))
         ax = plt.axes(projection=ccrs.PlateCarree())
         ax.set_extent([coordinates['lon_min'], coordinates['lon_max'],
@@ -112,16 +121,19 @@ def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max':
         ax.coastlines()
         ax.gridlines(draw_labels=True)
 
+        # Add MIR Band
         cmap = cm.get_cmap('Spectral_r')
-        plt.imshow(MIR, vmin=220, vmax=400, cmap=cmap)
+        # plt.imshow(MIR, vmin=220, vmax=400, cmap=cmap)
         plt.scatter(lon, lat, s=30, c=MIR, transform=ccrs.PlateCarree(),
                     vmin=220, vmax=400, cmap=cmap, alpha=1)
         plt.colorbar()
 
+        # Add Fire Pixels
         cmap = cm.get_cmap('Reds', 2)    # 11 discrete colors
         plt.scatter(lon, lat, s=1, c=potential_fire_pixel,
                     transform=ccrs.PlateCarree(), vmin=0, vmax=1, alpha=1, cmap=cmap)
 
+        # Create title and show
         plt.title("F1 Band with Potential Fire Pixels Overlaid in Red")
         plt.xlabel('Longitude')
         plt.ylabel('Latitude')

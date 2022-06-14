@@ -169,5 +169,5 @@ def getThresholdProducts(data_dir='s3_data'):
                         np.save(os.path.join(os.path.join(
                             'inputs', new_folder_name), 'longitude_in'), lon)
 
-    # Once done with ev ery return to cwd
+    # Once done with everything, return to cwd
     os.chdir(cwd)

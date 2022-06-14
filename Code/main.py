@@ -15,7 +15,7 @@ print('\n\n\n\n\n')
 
 # Define Data product Dictionaries
 
-SENTINELSAT_DATE = ['20180529', '20180530']
+SENTINELSAT_DATE = ['20210806', '20210810']
 
 SENTINELSAT_OPTIONS = {
     # Start, End date, YYYYMMDD, must be string format. The summer period is adviced.
@@ -35,7 +35,6 @@ SENTINELSAT_OPTIONS = {
 # Get S3 Data
 # getSentSatData(sentinelsat_options=SENTINELSAT_OPTIONS)
 
-
 # Look at data
 # displayData(sentinelsat_options=SENTINELSAT_OPTIONS)
 
@@ -43,8 +42,24 @@ SENTINELSAT_OPTIONS = {
 # getThresholdProducts(data_dir='s3_data')
 
 # Compute Initial MODIS Thresholds
-computeInitThresh_MODIS(data_dir='s3_data', thresholds={'MIR': 310, 'DIF': 10})
+INITIAL_THRESHOLDS = {
+    'MIR': 310,
+    'DIF': 10
+}
+# computeInitThresh_MODIS(data_dir=SENTINELSAT_OPTIONS['data_dir'], thresholds=INITIAL_THRESHOLDS)
 
 # Display Potential Fire displayFirePixels
-displayFirePixels(data_dir='s3_data', coordinates={
-                  'lon_min': 22, 'lon_max': 24, 'lat_min': 38, 'lat_max': 40}, show=True)
+COORDINATES = {
+    'lon_min': 22,
+    'lon_max': 24,
+    'lat_min': 38,
+    'lat_max': 40
+}
+# displayFirePixels(data_dir=SENTINELSAT_OPTIONS['data_dir'], coordinates=COORDINATES, show=True)
+
+# Create Grid
+RESOLUTION = 0.05
+grid_info = createGrid(res=RESOLUTION, coordinates=COORDINATES)
+
+# assign points to grid
+assignGridID(data_dir=SENTINELSAT_OPTIONS['data_dir'], grid_info=grid_info)
