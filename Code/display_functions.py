@@ -3,6 +3,7 @@ Functions to display and save results
 """
 import os
 import cartopy.crs as ccrs
+import cartopy
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
@@ -66,10 +67,11 @@ def displayData(sentinelsat_options: dict):
         lat_ratio = lat_max-lat_min
 
         plt.figure(figsize=(10, 10))
-        # ax = plt.axes(projection=ccrs.Stereographic())
         ax = plt.axes(projection=ccrs.PlateCarree())
         ax.set_extent([lon_min, lon_max, lat_min, lat_max],
                       crs=ccrs.PlateCarree())
+        ax.add_feature(cartopy.feature.OCEAN)
+        ax.add_feature(cartopy.feature.LAND)
 
         # plt.imshow(bandData, vmin=220, vmax=400)
         plt.scatter(lon, lat, s=10, c=bandData,
@@ -119,6 +121,8 @@ def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max':
         ax.set_extent([coordinates['lon_min'], coordinates['lon_max'],
                       coordinates['lat_min'], coordinates['lat_max']], crs=ccrs.PlateCarree())
         ax.coastlines()
+        ax.add_feature(cartopy.feature.OCEAN)
+        ax.add_feature(cartopy.feature.LAND)
         ax.gridlines(draw_labels=True)
 
         # Add MIR Band
@@ -129,7 +133,7 @@ def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max':
         plt.colorbar()
 
         # Add Fire Pixels
-        cmap = cm.get_cmap('Reds', 2)    # 11 discrete colors
+        cmap = cm.get_cmap('Reds', 2)
         plt.scatter(lon, lat, s=1, c=potential_fire_pixel,
                     transform=ccrs.PlateCarree(), vmin=0, vmax=1, alpha=1, cmap=cmap)
 
@@ -140,3 +144,53 @@ def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max':
         plt.tight_layout()
         if show:
             plt.show()
+
+
+"""
+Display MIR Bands for Cells
+"""
+
+
+def displayCellValue(grid_info: dict, data_dir='s3_data'):
+
+    id_map = grid_info['id_map']
+    x_center = id_map[:, -2]
+    y_center = id_map[:, -1]
+    print()
+    print(y_center)
+    print(x_center)
+
+    # Get current directory and move into the data folder
+    cwd = os.getcwd()
+    os.chdir(os.path.join(data_dir, 'inputs'))
+
+    # Get list of available folders
+    path_to_folders = glob.glob('*')
+
+    # Go into each folder and plot
+    print('\nDisplaying Initial MODIS Thresholds for Products:')
+    for folder in path_to_folders:
+
+        pixel_cell_info = np.load(os.path.join(folder, 'pixel_cell_info.npy'))
+        cell_value = np.load(os.path.join(folder, 'cell_value.npy'))
+
+        # print(cell_value[:, 1])
+        # print(x_center.shape)
+        # print(y_center.shape)
+
+        # Plot image
+        plt.figure(figsize=(8, 8))
+        ax = plt.axes(projection=ccrs.PlateCarree())
+        ax.add_feature(cartopy.feature.OCEAN)
+        ax.add_feature(cartopy.feature.LAND)
+        cmap = cm.get_cmap('Reds', 2)
+        plt.scatter(x_center, y_center, s=90,
+                    c=cell_value[:, 1], transform=ccrs.PlateCarree(), cmap=cmap, alpha=0.5, marker='s')
+        ax.coastlines()
+        ax.gridlines(draw_labels=True)
+        # plt.colorbar()
+        plt.title("Potential Fire Areas (Resolution: 0.05 Degrees)")
+        plt.xlabel('Longitude')
+        plt.ylabel('Latitude')
+        plt.tight_layout()
+        plt.show()

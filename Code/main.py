@@ -61,5 +61,14 @@ COORDINATES = {
 RESOLUTION = 0.05
 grid_info = createGrid(res=RESOLUTION, coordinates=COORDINATES)
 
-# assign points to grid
-assignGridID(data_dir=SENTINELSAT_OPTIONS['data_dir'], grid_info=grid_info)
+# #  assign points to grid
+# assignGridYN(grid_info=grid_info, data_dir=SENTINELSAT_OPTIONS['data_dir'])
+#
+# # Decrease Resolution based on gridYN
+# assignGridID(grid_info=grid_info, data_dir=SENTINELSAT_OPTIONS['data_dir'])
+#
+# # Make cell averages
+# makeCellAverage(grid_info=grid_info, data_dir=SENTINELSAT_OPTIONS['data_dir'])
+
+# Show cell averages
+displayCellValue(grid_info=grid_info, data_dir=SENTINELSAT_OPTIONS['data_dir'])
