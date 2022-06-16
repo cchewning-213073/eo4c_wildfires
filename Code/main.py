@@ -32,21 +32,35 @@ SENTINELSAT_OPTIONS = {
     'download_index': [12],
 }
 
+
 # Get S3 Data
 # getSentSatData(sentinelsat_options=SENTINELSAT_OPTIONS)
 
-# Look at data
+# Used to look at files in S3 folders
+# lookAtData()
+
+# Display data
 # displayData(sentinelsat_options=SENTINELSAT_OPTIONS)
 
 # Get Needed Band Data in usable format
 # getThresholdProducts(data_dir='s3_data')
 
+
+# Mask Clouds
+# maskClouds(data_dir=SENTINELSAT_OPTIONS['data_dir'])
+
+# Mask Water
+# maskWater(data_dir=SENTINELSAT_OPTIONS['data_dir'])
+
+
 # Compute Initial MODIS Thresholds
 INITIAL_THRESHOLDS = {
     'MIR': 310,
-    'DIF': 10
+    'DIF': 10,
+    'DAY_NIGHT_ZENITH': 85
 }
-# computeInitThresh_MODIS(data_dir=SENTINELSAT_OPTIONS['data_dir'], thresholds=INITIAL_THRESHOLDS)
+# findPotentialFirePixels(data_dir=SENTINELSAT_OPTIONS['data_dir'], thresholds=INITIAL_THRESHOLDS)
+
 
 # Display Potential Fire displayFirePixels
 COORDINATES = {
@@ -55,11 +69,11 @@ COORDINATES = {
     'lat_min': 38,
     'lat_max': 40
 }
-# displayFirePixels(data_dir=SENTINELSAT_OPTIONS['data_dir'], coordinates=COORDINATES, show=True)
+displayFirePixels(data_dir=SENTINELSAT_OPTIONS['data_dir'], coordinates=COORDINATES, show=True)
 
 # Create Grid
 RESOLUTION = 0.05
-grid_info = createGrid(res=RESOLUTION, coordinates=COORDINATES)
+# grid_info = createGrid(res=RESOLUTION, coordinates=COORDINATES)
 
 # #  assign points to grid
 # assignGridYN(grid_info=grid_info, data_dir=SENTINELSAT_OPTIONS['data_dir'])
@@ -69,6 +83,6 @@ grid_info = createGrid(res=RESOLUTION, coordinates=COORDINATES)
 #
 # # Make cell averages
 # makeCellAverage(grid_info=grid_info, data_dir=SENTINELSAT_OPTIONS['data_dir'])
-
-# Show cell averages
-displayCellValue(grid_info=grid_info, data_dir=SENTINELSAT_OPTIONS['data_dir'])
+#
+# # Show cell averages
+# displayCellValue(grid_info=grid_info, data_dir=SENTINELSAT_OPTIONS['data_dir'])

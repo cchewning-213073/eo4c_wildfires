@@ -12,6 +12,8 @@ import zipfile
 import cartopy.crs as ccrs
 from pylab import cm
 import geopandas as gpd
+import skimage.util as ski
+
 
 from sentinelsat.sentinel import SentinelAPI, read_geojson, geojson_to_wkt
 
@@ -22,7 +24,7 @@ Compute Initial Thresholds:
 """
 
 
-def computeInitThresh_MODIS(data_dir='s3_data', thresholds={'MIR': 310, 'DIF': 10}):
+def findPotentialFirePixels(data_dir='s3_data', thresholds={'MIR': 310, 'DIF': 10, 'DAY_NIGHT_ZENITH': 85}):
 
     # Get current directory and move into the data folder
     cwd = os.getcwd()
@@ -43,17 +45,166 @@ def computeInitThresh_MODIS(data_dir='s3_data', thresholds={'MIR': 310, 'DIF': 1
         # Get values
         MIR = np.load(os.path.join(folder, 'F1_BT_fn.npy'))
         TIR = np.load(os.path.join(folder, 'F2_BT_in.npy'))
-        DIF = np.load(os.path.join(folder, 'DIF.npy'))
+        DIF = MIR-TIR
+        zenith = np.load(os.path.join(folder, 'solar_zenith_angle.npy'))
+        cloud_mask = np.load(os.path.join(folder, 'cloud_mask.npy'))
+        water_mask = np.load(os.path.join(folder, 'water_mask.npy'))
 
-        # Calculate Thresholds
+        print(zenith.shape)
+
+        # Calculate Thresholds for Fire with MODIS Scheme
         thresh_1 = np.where(MIR > thresholds['MIR'], 1, 0)
         thresh_2 = np.where(DIF > thresholds['DIF'], 1, 0)
-        potential_fire_pixel = np.where((thresh_1+thresh_2) == 2, 1, 0)
+        thresh_3 = (thresh_1+thresh_2)*cloud_mask*water_mask
+
+        potential_fire_pixel = np.where((thresh_3) == 2, 1, 0)
+
+        # See if pixel is day or night
+        day_pixel = np.where(zenith > thresholds['DAY_NIGHT_ZENITH'], 1, 0)
 
         # Save file
         print('\tSaving thresholds')
         np.save(os.path.join(folder, 'DIF'), DIF)
         np.save(os.path.join(folder, 'initThresh_MODIS'), potential_fire_pixel)
+        np.save(os.path.join(folder, 'day_pixels'), day_pixel)
+
+    os.chdir(cwd)
+
+
+"""
+Create Cloud mask
+"""
+
+
+def maskClouds(data_dir='s3_data'):
+
+    # Get current directory and move into the data folder
+    cwd = os.getcwd()
+    os.chdir(os.path.join(data_dir, 'inputs'))
+
+    # Get list of available folders
+    path_to_folders = glob.glob('*')
+
+    # Go into each folder and calculate threshold for each product
+    print('\nCalculating Cloud Mask for Products:')
+    count = 0
+    for folder in path_to_folders:
+        count += 1
+        print(f'Creating cloud mask for product {count}/{len(path_to_folders)}')
+
+        # Get values
+        P_RED_highres = np.load(os.path.join(folder, 'S2_radiance_an.npy'))
+        P_NIR_highres = np.load(os.path.join(folder, 'S3_radiance_an.npy'))
+        TIR2 = np.load(os.path.join(folder, 'S9_BT_in.npy'))
+        day_pixel = np.load(os.path.join(folder, 'day_pixels.npy'))
+
+        # Adjust Radiances to smaller gridsize
+        P_RED = ski.view_as_blocks(P_RED_highres, (2, 2)).mean(axis=(2, 3))
+        P_NIR = ski.view_as_blocks(P_NIR_highres, (2, 2)).mean(axis=(2, 3))
+
+        # Implement Cloud mask
+        # Create grid to hold mask
+        y_len = P_RED.shape[0]
+        x_len = P_RED.shape[1]
+
+        cloud_mask = np.ones((y_len, x_len))
+
+        for i in range(y_len):
+            for j in range(x_len):
+
+                # Mark Nighttime clouds
+                if day_pixel[i, j] == 0:
+                    if TIR2[i, j] < 265:
+                        cloud_mask[i, j] = 0
+
+                # Mark Day time clouds
+                else:
+                    if P_RED[i, j] + P_NIR[i, j] > 0.9:
+                        cloud_mask[i, j] = 0
+                    if TIR2[i, j] < 265:
+                        cloud_mask[i, j] = 0
+                    if (P_RED[i, j] + P_NIR[i, j] > 0.7) and TIR2[i, j] < 285:
+                        cloud_mask[i, j] = 0
+
+        print(np.sum(cloud_mask)/cloud_mask.size)
+
+        plt.figure()
+        plt.imshow(cloud_mask)
+        plt.show()
+
+        np.save(os.path.join(folder, 'cloud_mask'), cloud_mask)
+
+    os.chdir(cwd)
+
+
+"""
+Create Water mask
+"""
+
+
+def maskWater(data_dir='s3_data'):
+
+    # Get current directory and move into the data folder
+    cwd = os.getcwd()
+    os.chdir(os.path.join(data_dir, 'inputs'))
+
+    # Get list of available folders
+    path_to_folders = glob.glob('*')
+
+    # Go into each folder and calculate threshold for each product
+    print('\nCalculating Water Mask for Products:')
+    count = 0
+    for folder in path_to_folders:
+        count += 1
+        print(f'Creating water mask for product {count}/{len(path_to_folders)}')
+
+        # Get values
+        P_SWIR_highres = np.load(os.path.join(folder, 'S6_radiance_an.npy'))
+        P_NIR_highres = np.load(os.path.join(folder, 'S3_radiance_an.npy'))
+        P_RED_highres = np.load(os.path.join(folder, 'S2_radiance_an.npy'))
+        # day_pixel = np.load(os.path.join(folder, 'day_pixels.npy'))
+
+        # Adjust Radiances to smaller gridsize
+        P_RED = ski.view_as_blocks(P_RED_highres, (2, 2)).mean(axis=(2, 3))
+        P_NIR = ski.view_as_blocks(P_NIR_highres, (2, 2)).mean(axis=(2, 3))
+        P_SWIR = ski.view_as_blocks(P_SWIR_highres, (2, 2)).mean(axis=(2, 3))
+
+        NDVI = (P_NIR-P_RED)/(P_NIR+P_RED)
+
+        # print(P_RED.min(), P_RED.mean(), P_RED.max())
+        # print(P_NIR.min(), P_NIR.mean(), P_NIR.max())
+        # print(P_SWIR.min(), P_SWIR.mean(), P_SWIR.max())
+        # print(NDVI.min(), NDVI.mean(), NDVI.max())
+        #
+        # plt.figure()
+        # plt.imshow(NDVI)
+        # plt.colorbar()
+        # plt.title(f'NDVI: {folder}')
+        # plt.tight_layout()
+        # plt.show()
+
+        # Implement water mask
+        # Create grid to hold mask
+        y_len = P_RED.shape[0]
+        x_len = P_RED.shape[1]
+
+        water_mask = np.ones((y_len, x_len))
+
+        for i in range(y_len):
+            for j in range(x_len):
+                if (P_SWIR[i, j] < 50) and (P_NIR[i, j] < 150) and (NDVI[i, j] < 0):
+                    # if (P_SWIR[i, j] < 0.05) and (P_NIR[i, j] < 0.15) and (NDVI[i, j] < 0):
+                    water_mask[i, j] = 0
+
+        print(np.sum(water_mask)/water_mask.size)
+
+        # plt.figure()
+        # plt.imshow(water_mask)
+        # plt.colorbar()
+        # plt.title(f'Water Mask: {folder}')
+        # plt.show()
+
+        np.save(os.path.join(folder, 'water_mask'), water_mask)
 
     os.chdir(cwd)
 

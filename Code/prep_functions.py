@@ -12,8 +12,35 @@ from netCDF4 import Dataset
 import zipfile
 import cartopy.crs as ccrs
 from pylab import cm
+from scipy.interpolate import griddata
 
 from sentinelsat.sentinel import SentinelAPI, read_geojson, geojson_to_wkt
+
+
+def lookAtData(data_dir='s3_data', basedir='S3A_SL_1_RBT____20210806T081630_20210806T081930_20210807T160928_0179_075_021_2340_LN2_O_NT_004.SEN3'):
+
+    cwd = os.getcwd()
+    os.chdir(data_dir)
+
+    files = glob.glob(basedir+os.sep+'geometry_tn.nc')
+    for ff in files:
+        print(ff)
+
+    dummyFile = files[0]  # Looking at the first datafile
+
+    with Dataset(dummyFile) as src:
+
+        # Each datafile contains multiple bands
+        for band, variable in src.variables.items():
+            print('------' + band + '------')
+
+            if "_tn" in band:
+                bandName = band
+                # Printing the attributes of the BT_in variables:
+                for attrname in variable.ncattrs():
+                    print("{} -- {}".format(attrname, getattr(variable, attrname)))
+
+    os.chdir(cwd)
 
 
 """
@@ -105,10 +132,10 @@ def getThresholdProducts(data_dir='s3_data'):
     count = 0
     for folder in path_to_folders:
         count += 1
-        print(f'Extracting Product {count}/{len(path_to_folders)}')
+        print(f'\nExtracting Product {count}/{len(path_to_folders)}')
 
         # Get product date - S3A_SL_1_RBT____20210809T195551_20210809T195851_20210811T075833_0180_075_071_0540_LN2_O_NT_004.SEN3
-        product_sat = folder[:2]
+        product_sat = folder[:3]
         product_year = folder[16:20]
         product_month = folder[20:22]
         product_day = folder[22:24]
@@ -123,8 +150,14 @@ def getThresholdProducts(data_dir='s3_data'):
                      'F2_BT_in.nc', 'F2_BT_io.nc',
                      'S7_BT_in.nc', 'S7_BT_io.nc',
                      'S8_BT_in.nc', 'S8_BT_io.nc',
+                     'S9_BT_in.nc', 'S9_BT_io.nc',
                      'geodetic_fn.nc', 'geodetic_fo.nc',
-                     'geodetic_in.nc', 'geodetic_io.nc']
+                     'geodetic_in.nc', 'geodetic_io.nc',
+                     'S2_radiance_an.nc', 'S2_radiance_ao.nc',
+                     'S3_radiance_an.nc', 'S3_radiance_ao.nc',
+                     'S6_radiance_an.nc', 'S6_radiance_ao.nc',
+                     'S6_radiance_bn.nc', 'S6_radiance_bo.nc',
+                     'geometry_tn.nc', 'geodetic_tx.nc']
 
         for file in file_list:
 
@@ -134,6 +167,8 @@ def getThresholdProducts(data_dir='s3_data'):
             with Dataset(file_path) as src:
                 # Each datafile contains multiple bands
                 for band, variable in src.variables.items():
+
+                    # print(band, variable)
 
                     # Get Brightness Temps
                     if file[:8] in band:
@@ -145,30 +180,62 @@ def getThresholdProducts(data_dir='s3_data'):
                         # Save file
                         np.save(os.path.join(os.path.join('inputs', new_folder_name), bandName), bandData)
 
-                    # Get coordinates
+                    # Get Radiances
+                    if file[:14] in band:
+                        bandName = band
+                        data = Dataset(file_path)
+                        data.set_auto_mask(False)
+                        bandData = data.variables[bandName][:]
+                        data.close()
+                        # Save file
+                        np.save(os.path.join(os.path.join('inputs', new_folder_name), bandName), bandData)
 
+                    # Get coordinates
                     elif file[:11] == 'geodetic_fn':
                         data = Dataset(file_path)
                         data.set_auto_mask(False)
-                        lat = data.variables['latitude_fn'][:]
-                        lon = data.variables['longitude_fn'][:]
+                        lat_fn = data.variables['latitude_fn'][:]
+                        lon_fn = data.variables['longitude_fn'][:]
                         data.close()
                         # Save file
-                        np.save(os.path.join(os.path.join('inputs', new_folder_name), 'latitude_fn'), lat)
                         np.save(os.path.join(os.path.join(
-                            'inputs', new_folder_name), 'longitude_fn'), lon)
+                            'inputs', new_folder_name), 'latitude_fn'), lat_fn)
+                        np.save(os.path.join(os.path.join(
+                            'inputs', new_folder_name), 'longitude_fn'), lon_fn)
 
-                    # Get coordinates
-                    elif file[:9] == 'geodetic_i':
+                    # # Get coordinates
+                    # elif file[:9] == 'geodetic_i':
+                    #     data = Dataset(file_path)
+                    #     data.set_auto_mask(False)
+                    #     lat = data.variables['latitude_in'][:]
+                    #     lon = data.variables['longitude_in'][:]
+                    #     data.close()
+                    #     # Save file
+                    #     np.save(os.path.join(os.path.join('inputs', new_folder_name), 'latitude_in'), lat)
+                    #     np.save(os.path.join(os.path.join(
+                    #         'inputs', new_folder_name), 'longitude_in'), lon)
+
+                    # Get solar zenith
+                    if 'solar_zenith_tn' in band:
+                        bandName = band
                         data = Dataset(file_path)
                         data.set_auto_mask(False)
-                        lat = data.variables['latitude_in'][:]
-                        lon = data.variables['longitude_in'][:]
+                        solar_zenith_tn = data.variables[bandName][:]
                         data.close()
-                        # Save file
-                        np.save(os.path.join(os.path.join('inputs', new_folder_name), 'latitude_in'), lat)
-                        np.save(os.path.join(os.path.join(
-                            'inputs', new_folder_name), 'longitude_in'), lon)
+
+                    if file[:11] == 'geodetic_tx':
+                        bandName = band
+                        data = Dataset(file_path)
+                        data.set_auto_mask(False)
+                        lat_tx = data.variables['latitude_tx'][:]
+                        lon_tx = data.variables['longitude_tx'][:]
+                        data.close()
+
+        # Take zenith inputs and expand grid to what we want
+        solar_zenith_angle = griddata((lat_tx.flatten(), lon_tx.flatten()),
+                                      solar_zenith_tn.flatten(), (lat_fn, lon_fn), method='linear')
+        np.save(os.path.join(os.path.join(
+            'inputs', new_folder_name), 'solar_zenith_angle'), solar_zenith_angle)
 
     # Once done with everything, return to cwd
     os.chdir(cwd)

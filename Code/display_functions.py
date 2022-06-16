@@ -98,7 +98,7 @@ def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max':
     os.chdir(os.path.join(data_dir, 'inputs'))
 
     # Get list of available folders
-    path_to_folders = glob.glob('*')
+    path_to_folders = sorted(glob.glob('*'))
     print('Available Folders:')
     for folder in path_to_folders:
         print(folder)
@@ -138,7 +138,8 @@ def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max':
                     transform=ccrs.PlateCarree(), vmin=0, vmax=1, alpha=1, cmap=cmap)
 
         # Create title and show
-        plt.title("F1 Band with Potential Fire Pixels Overlaid in Red")
+        plt.title(f"F1 Band with Potential Fire Pixels Overlaid in Red: {folder}")
+        plt.tight_layout()
         plt.xlabel('Longitude')
         plt.ylabel('Latitude')
         plt.tight_layout()
@@ -165,7 +166,7 @@ def displayCellValue(grid_info: dict, data_dir='s3_data'):
     os.chdir(os.path.join(data_dir, 'inputs'))
 
     # Get list of available folders
-    path_to_folders = glob.glob('*')
+    path_to_folders = sorted(glob.glob('*'))
 
     # Go into each folder and plot
     print('\nDisplaying Initial MODIS Thresholds for Products:')
@@ -174,15 +175,11 @@ def displayCellValue(grid_info: dict, data_dir='s3_data'):
         pixel_cell_info = np.load(os.path.join(folder, 'pixel_cell_info.npy'))
         cell_value = np.load(os.path.join(folder, 'cell_value.npy'))
 
-        # print(cell_value[:, 1])
-        # print(x_center.shape)
-        # print(y_center.shape)
-
         # Save firepixels as matrix
         fire_pixel_output = cell_value[:, 1].reshape((40, 40))
         # np.save(os.path.join(folder, 'active_fires_'+folder), fire_pixel_output)
 
-        fire_folder = os.path.join(cwd, 'active_fire_product')
+        fire_folder = os.path.join(cwd, '../active_fire_product')
         np.save(os.path.join(fire_folder, 'active_fires_'+folder), fire_pixel_output)
 
         # plt.figure(figsize=(8, 8))
