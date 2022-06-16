@@ -108,11 +108,12 @@ def getThresholdProducts(data_dir='s3_data'):
         print(f'Extracting Product {count}/{len(path_to_folders)}')
 
         # Get product date - S3A_SL_1_RBT____20210809T195551_20210809T195851_20210811T075833_0180_075_071_0540_LN2_O_NT_004.SEN3
+        product_sat = folder[:2]
         product_year = folder[16:20]
         product_month = folder[20:22]
         product_day = folder[22:24]
         product_time = folder[25:31]
-        new_folder_name = product_day+'_'+product_month+'_'+product_year+'_T_'+product_time
+        new_folder_name = product_day+'_'+product_month+'_'+product_year+'_T_'+product_time+'_'+product_sat
 
         # Create folder in inputs to hold the created files
         os.makedirs(os.path.join('inputs', new_folder_name), exist_ok=True)

@@ -178,19 +178,30 @@ def displayCellValue(grid_info: dict, data_dir='s3_data'):
         # print(x_center.shape)
         # print(y_center.shape)
 
-        # Plot image
-        plt.figure(figsize=(8, 8))
-        ax = plt.axes(projection=ccrs.PlateCarree())
-        ax.add_feature(cartopy.feature.OCEAN)
-        ax.add_feature(cartopy.feature.LAND)
-        cmap = cm.get_cmap('Reds', 2)
-        plt.scatter(x_center, y_center, s=90,
-                    c=cell_value[:, 1], transform=ccrs.PlateCarree(), cmap=cmap, alpha=0.5, marker='s')
-        ax.coastlines()
-        ax.gridlines(draw_labels=True)
-        # plt.colorbar()
-        plt.title("Potential Fire Areas (Resolution: 0.05 Degrees)")
-        plt.xlabel('Longitude')
-        plt.ylabel('Latitude')
-        plt.tight_layout()
-        plt.show()
+        # Save firepixels as matrix
+        fire_pixel_output = cell_value[:, 1].reshape((40, 40))
+        # np.save(os.path.join(folder, 'active_fires_'+folder), fire_pixel_output)
+
+        fire_folder = os.path.join(cwd, 'active_fire_product')
+        np.save(os.path.join(fire_folder, 'active_fires_'+folder), fire_pixel_output)
+
+        # plt.figure(figsize=(8, 8))
+        # plt.imshow(fire_pixel_output)
+        # plt.show()
+        #
+        # # Plot image
+        # plt.figure(figsize=(8, 8))
+        # ax = plt.axes(projection=ccrs.PlateCarree())
+        # ax.add_feature(cartopy.feature.OCEAN)
+        # ax.add_feature(cartopy.feature.LAND)
+        # cmap = cm.get_cmap('Reds', 2)
+        # plt.scatter(x_center, y_center, s=90,
+        #             c=cell_value[:, 1], transform=ccrs.PlateCarree(), cmap=cmap, alpha=0.5, marker='s')
+        # ax.coastlines()
+        # ax.gridlines(draw_labels=True)
+        # # plt.colorbar()
+        # plt.title(f"Potential Fire Areas (Resolution: 0.05 Degrees) on {folder}")
+        # plt.xlabel('Longitude')
+        # plt.ylabel('Latitude')
+        # plt.tight_layout()
+        # plt.show()
