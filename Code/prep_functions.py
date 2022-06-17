@@ -13,6 +13,7 @@ import zipfile
 import cartopy.crs as ccrs
 from pylab import cm
 from scipy.interpolate import griddata
+import skimage.util as ski
 
 from sentinelsat.sentinel import SentinelAPI, read_geojson, geojson_to_wkt
 
@@ -22,7 +23,7 @@ def lookAtData(data_dir='s3_data', basedir='S3A_SL_1_RBT____20210806T081630_2021
     cwd = os.getcwd()
     os.chdir(data_dir)
 
-    files = glob.glob(basedir+os.sep+'geometry_tn.nc')
+    files = glob.glob(basedir+os.sep+'S2_quality_an.nc')
     for ff in files:
         print(ff)
 
@@ -34,7 +35,7 @@ def lookAtData(data_dir='s3_data', basedir='S3A_SL_1_RBT____20210806T081630_2021
         for band, variable in src.variables.items():
             print('------' + band + '------')
 
-            if "_tn" in band:
+            if "S2_solar_irradiance_an" in band:
                 bandName = band
                 # Printing the attributes of the BT_in variables:
                 for attrname in variable.ncattrs():
@@ -71,7 +72,7 @@ def getSentSatData(sentinelsat_options: dict):
     # convert to Pandas DataFrame
     print('\nRetrieving Products.')
     products_df = api.to_dataframe(products)
-    print(products_df.title)
+    # print(products_df.title)
 
     if len(products_df) < 1:
         exit('No products available.')
@@ -88,20 +89,63 @@ def getSentSatData(sentinelsat_options: dict):
     # print(f"\nDownloading product: {products_df.head(index)['title']}")
 
     # Unzip files
-    path_to_zip_file = glob.glob('*.zip')
+    path_to_zip_file = sorted(glob.glob('*.zip'))
     for count in range(sentinelsat_options['download_index']):
 
         with zipfile.ZipFile(path_to_zip_file[count], 'r') as zip_ref:
             zip_ref.extractall()
 
-        # # rename folder
-        # zipped_name = path_to_zip_file[count][:-4]
-        # path_to_SEN3_folder = (zipped_name+'.SEN3')
-        # new_SEN3_name = sentinelsat_options['return_file_prefix'] + \
-        #     sentinelsat_options['return_file_prefix'][0]+'_to_' + \
-        #     sentinelsat_options['return_file_prefix'][1]+'_Count_'+str(count)+'.SEN3'
-        #
-        # os.rename(path_to_SEN3_folder, new_SEN3_name)
+        # Delete Zip file
+        os.remove(path_to_zip_file[count])
+
+    os.chdir(cwd)  # Return to project directory.
+
+
+def getSent2SatData(sentinelsat_options: dict):
+    # Make data directory (if it does not exist).
+    os.makedirs(os.path.join(os.getcwd(), sentinelsat_options['data_dir']), exist_ok=True)
+
+    # Initialize API.
+    api = SentinelAPI(sentinelsat_options['username'], sentinelsat_options['password'],
+                      api_url='https://scihub.copernicus.eu/dhus/')
+    print('API Initialized.')
+
+    # Get geojson footprint.
+    footprint = geojson_to_wkt(read_geojson(sentinelsat_options['footprint_file']))
+
+    # Find matching files based on criteria.
+    products = api.query(area=footprint,
+                         date=sentinelsat_options['date'],
+                         platformname=sentinelsat_options['platformname'],
+                         producttype=sentinelsat_options['producttype'],
+                         # processinglevel=sentinelsat_options['processinglevel']
+                         )
+
+    # convert to Pandas DataFrame
+    print('\nRetrieving Products.')
+    products_df = api.to_dataframe(products)
+    # print(products_df.title)
+
+    if len(products_df) < 1:
+        exit('No products available.')
+
+    print(f"\n\nNumber of products available: {len(products_df)}")
+    cwd = os.getcwd()  # remember current work directory (CWD).
+    os.chdir(sentinelsat_options['data_dir'])  # Change directory.
+    #
+    # Select and download product to data directory.
+    # Get desired product based on selected index.
+    product_df = products_df.head(sentinelsat_options['download_index'][0])
+    # Download product. Needs '.index' as it cannot download df directly.
+    api.download_all(product_df.index)
+    # print(f"\nDownloading product: {products_df.head(index)['title']}")
+
+    # Unzip files
+    path_to_zip_file = sorted(glob.glob('*.zip'))
+    for count in range(sentinelsat_options['download_index']):
+
+        with zipfile.ZipFile(path_to_zip_file[count], 'r') as zip_ref:
+            zip_ref.extractall()
 
         # Delete Zip file
         os.remove(path_to_zip_file[count])
@@ -115,14 +159,14 @@ Return Data necessary for Initial Thresholds:
 """
 
 
-def getThresholdProducts(data_dir='s3_data'):
+def getProducts(data_dir='s3_data'):
 
     # Get current directory and move into the data folder
     cwd = os.getcwd()
     os.chdir(data_dir)
 
     # Get list of available folders
-    path_to_folders = glob.glob('*.SEN3')
+    path_to_folders = sorted(glob.glob('*.SEN3'))
     print('Available Folders:')
     for folder in path_to_folders:
         print(folder)
@@ -146,18 +190,18 @@ def getThresholdProducts(data_dir='s3_data'):
         os.makedirs(os.path.join('inputs', new_folder_name), exist_ok=True)
 
         # List of wanted files
-        file_list = ['F1_BT_fn.nc', 'F1_BT_fo.nc',
-                     'F2_BT_in.nc', 'F2_BT_io.nc',
-                     'S7_BT_in.nc', 'S7_BT_io.nc',
-                     'S8_BT_in.nc', 'S8_BT_io.nc',
-                     'S9_BT_in.nc', 'S9_BT_io.nc',
-                     'geodetic_fn.nc', 'geodetic_fo.nc',
-                     'geodetic_in.nc', 'geodetic_io.nc',
-                     'S2_radiance_an.nc', 'S2_radiance_ao.nc',
-                     'S3_radiance_an.nc', 'S3_radiance_ao.nc',
-                     'S6_radiance_an.nc', 'S6_radiance_ao.nc',
-                     'S6_radiance_bn.nc', 'S6_radiance_bo.nc',
-                     'geometry_tn.nc', 'geodetic_tx.nc']
+        file_list = ['F1_BT_fn.nc',
+                     'F2_BT_in.nc',
+                     'S7_BT_in.nc',
+                     'S8_BT_in.nc',
+                     'S9_BT_in.nc',
+                     'geodetic_fn.nc',
+                     'geodetic_in.nc',
+                     'S2_radiance_an.nc',
+                     'S3_radiance_an.nc',
+                     'S6_radiance_an.nc',
+                     'geometry_tn.nc', 'geodetic_tx.nc',
+                     'S2_quality_an.nc', 'S3_quality_an.nc', 'S6_quality_an.nc']
 
         for file in file_list:
 
@@ -203,18 +247,6 @@ def getThresholdProducts(data_dir='s3_data'):
                         np.save(os.path.join(os.path.join(
                             'inputs', new_folder_name), 'longitude_fn'), lon_fn)
 
-                    # # Get coordinates
-                    # elif file[:9] == 'geodetic_i':
-                    #     data = Dataset(file_path)
-                    #     data.set_auto_mask(False)
-                    #     lat = data.variables['latitude_in'][:]
-                    #     lon = data.variables['longitude_in'][:]
-                    #     data.close()
-                    #     # Save file
-                    #     np.save(os.path.join(os.path.join('inputs', new_folder_name), 'latitude_in'), lat)
-                    #     np.save(os.path.join(os.path.join(
-                    #         'inputs', new_folder_name), 'longitude_in'), lon)
-
                     # Get solar zenith
                     if 'solar_zenith_tn' in band:
                         bandName = band
@@ -231,6 +263,15 @@ def getThresholdProducts(data_dir='s3_data'):
                         lon_tx = data.variables['longitude_tx'][:]
                         data.close()
 
+                    if 'solar_irradiance_an' in band:
+                        bandName = band
+                        data = Dataset(file_path)
+                        data.set_auto_mask(False)
+                        solar_irradiance_an = data.variables[bandName][:]
+                        data.close()
+                        np.save(os.path.join(os.path.join(
+                            'inputs', new_folder_name), bandName), solar_irradiance_an)
+
         # Take zenith inputs and expand grid to what we want
         solar_zenith_angle = griddata((lat_tx.flatten(), lon_tx.flatten()),
                                       solar_zenith_tn.flatten(), (lat_fn, lon_fn), method='linear')
@@ -238,4 +279,53 @@ def getThresholdProducts(data_dir='s3_data'):
             'inputs', new_folder_name), 'solar_zenith_angle'), solar_zenith_angle)
 
     # Once done with everything, return to cwd
+    os.chdir(cwd)
+
+
+"""
+Calculate Reflectance From radiance:
+"""
+
+
+def calcReflectance(data_dir='s3_data'):
+
+    # Get current directory and move into the data folder
+    cwd = os.getcwd()
+    os.chdir(os.path.join(data_dir, 'inputs'))
+
+    # Get list of available folders
+    path_to_folders = sorted(glob.glob('*'))
+
+    # Go into each folder and calculate threshold for each product
+    print('\nCalculating Reflectance for Products:')
+    count = 0
+    for folder in path_to_folders:
+        count += 1
+        print(f'\n\tCalculating reflectance for product {count}/{len(path_to_folders)}')
+
+        # inport files
+        L_RED = np.load(os.path.join(folder, 'S2_radiance_an.npy'))
+        L_NIR = np.load(os.path.join(folder, 'S3_radiance_an.npy'))
+        L_SWIR = np.load(os.path.join(folder, 'S6_radiance_an.npy'))
+
+        L_RED = ski.view_as_blocks(L_RED, (2, 2)).mean(axis=(2, 3))
+        L_NIR = ski.view_as_blocks(L_NIR, (2, 2)).mean(axis=(2, 3))
+        L_SWIR = ski.view_as_blocks(L_SWIR, (2, 2)).mean(axis=(2, 3))
+
+        I_RED = np.load(os.path.join(folder, 'S2_solar_irradiance_an.npy'))[0]
+        I_NIR = np.load(os.path.join(folder, 'S3_solar_irradiance_an.npy'))[0]
+        I_SWIR = np.load(os.path.join(folder, 'S6_solar_irradiance_an.npy'))[0]
+
+        solar_zenith = np.load(os.path.join(folder, 'solar_zenith_angle.npy'))
+
+        # Calculate Reflectance
+        P_RED = np.pi * (L_RED / I_RED / np.cos(solar_zenith))
+        P_NIR = np.pi * (L_NIR / I_NIR / np.cos(solar_zenith))
+        P_SWIR = np.pi * (L_SWIR / I_SWIR / np.cos(solar_zenith))
+
+        # Save
+        np.save(f'{folder}/S2_reflectance_an', P_RED)
+        np.save(f'{folder}/S3_reflectance_an', P_NIR)
+        np.save(f'{folder}/S6_reflectance_an', P_SWIR)
+
     os.chdir(cwd)

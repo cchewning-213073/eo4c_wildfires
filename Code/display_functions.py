@@ -12,6 +12,7 @@ from netCDF4 import Dataset
 import zipfile
 import cartopy.crs as ccrs
 from pylab import cm
+import imageio
 
 from sentinelsat.sentinel import SentinelAPI, read_geojson, geojson_to_wkt
 
@@ -25,9 +26,11 @@ def displayData(sentinelsat_options: dict):
     cwd = os.getcwd()
     os.chdir('s3_data')
 
-    path_to_folders = glob.glob('*.SEN3')
+    path_to_folders = sorted(glob.glob('*.SEN3'))
 
+    count = 0
     for folder in path_to_folders:
+        count += 1
         print('')
         print(folder)
 
@@ -79,9 +82,9 @@ def displayData(sentinelsat_options: dict):
 
         ax.coastlines()
         ax.gridlines(draw_labels=True)
-
         plt.colorbar()
-        plt.show()
+        plt.savefig(f'../../figures/gif_files/f1_band/f1_band_{count}.png')
+        # plt.show()
 
     os.chdir(cwd)
 
@@ -104,8 +107,10 @@ def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max':
         print(folder)
 
     # Go into each folder and plot
-    print('\nDisplaying Initial MODIS Thresholds for Products:')
+    print('\nDisplaying Potential Fire Pixels for Products:')
+    count = 0
     for folder in path_to_folders:
+        count += 1
 
         # Get values
         MIR = np.load(os.path.join(folder, 'F1_BT_fn.npy'))
@@ -120,10 +125,6 @@ def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max':
         ax = plt.axes(projection=ccrs.PlateCarree())
         ax.set_extent([coordinates['lon_min'], coordinates['lon_max'],
                       coordinates['lat_min'], coordinates['lat_max']], crs=ccrs.PlateCarree())
-        ax.coastlines()
-        ax.add_feature(cartopy.feature.OCEAN)
-        ax.add_feature(cartopy.feature.LAND)
-        ax.gridlines(draw_labels=True)
 
         # Add MIR Band
         cmap = cm.get_cmap('Spectral_r')
@@ -137,12 +138,15 @@ def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max':
         plt.scatter(lon, lat, s=1, c=potential_fire_pixel,
                     transform=ccrs.PlateCarree(), vmin=0, vmax=1, alpha=1, cmap=cmap)
 
+        ax.coastlines()
+        ax.add_feature(cartopy.feature.OCEAN)
+        ax.add_feature(cartopy.feature.LAND)
+        ax.gridlines(draw_labels=True)
+
         # Create title and show
-        plt.title(f"F1 Band with Potential Fire Pixels Overlaid in Red: {folder}")
+        plt.title(f"F1 Band with Potential Fire Pixels: {folder}")
         plt.tight_layout()
-        plt.xlabel('Longitude')
-        plt.ylabel('Latitude')
-        plt.tight_layout()
+        plt.savefig(f'../../../figures/gif_files/fire_pixels/fire_pixels_{count}.png')
         if show:
             plt.show()
 
@@ -157,9 +161,6 @@ def displayCellValue(grid_info: dict, data_dir='s3_data'):
     id_map = grid_info['id_map']
     x_center = id_map[:, -2]
     y_center = id_map[:, -1]
-    print()
-    print(y_center)
-    print(x_center)
 
     # Get current directory and move into the data folder
     cwd = os.getcwd()
@@ -170,7 +171,9 @@ def displayCellValue(grid_info: dict, data_dir='s3_data'):
 
     # Go into each folder and plot
     print('\nDisplaying Initial MODIS Thresholds for Products:')
+    count = 0
     for folder in path_to_folders:
+        count += 1
 
         pixel_cell_info = np.load(os.path.join(folder, 'pixel_cell_info.npy'))
         cell_value = np.load(os.path.join(folder, 'cell_value.npy'))
@@ -185,20 +188,41 @@ def displayCellValue(grid_info: dict, data_dir='s3_data'):
         # plt.figure(figsize=(8, 8))
         # plt.imshow(fire_pixel_output)
         # plt.show()
-        #
-        # # Plot image
-        # plt.figure(figsize=(8, 8))
-        # ax = plt.axes(projection=ccrs.PlateCarree())
-        # ax.add_feature(cartopy.feature.OCEAN)
-        # ax.add_feature(cartopy.feature.LAND)
-        # cmap = cm.get_cmap('Reds', 2)
-        # plt.scatter(x_center, y_center, s=90,
-        #             c=cell_value[:, 1], transform=ccrs.PlateCarree(), cmap=cmap, alpha=0.5, marker='s')
-        # ax.coastlines()
-        # ax.gridlines(draw_labels=True)
-        # # plt.colorbar()
-        # plt.title(f"Potential Fire Areas (Resolution: 0.05 Degrees) on {folder}")
-        # plt.xlabel('Longitude')
-        # plt.ylabel('Latitude')
-        # plt.tight_layout()
+
+        # Plot image
+        plt.figure(figsize=(8, 8))
+        ax = plt.axes(projection=ccrs.PlateCarree())
+        ax.add_feature(cartopy.feature.OCEAN)
+        ax.add_feature(cartopy.feature.LAND)
+        cmap = cm.get_cmap('Reds', 2)
+        plt.scatter(x_center, y_center, s=90,
+                    c=cell_value[:, 1], transform=ccrs.PlateCarree(), cmap=cmap, alpha=0.5, marker='s')
+        ax.coastlines()
+        ax.gridlines(draw_labels=True)
+        # plt.colorbar()
+        plt.title(f"Final Fire Cells (Res: 0.05 Degrees) on {folder}")
+        plt.tight_layout()
         # plt.show()
+        plt.savefig(f'../../../figures/gif_files/fire_cells/fire_cells_{count}.png')
+
+    os.chdir(cwd)
+
+
+"""
+Make a gif from files in a specified folder
+"""
+
+
+def makeGIF(gif_name='fire_cells', gif_dir='../figures/gif_files/fire_cells', fps=1):
+
+    # Build GIF
+    print(f'Creating Gif from: {gif_dir}')
+
+    filenames = sorted(glob.glob(os.path.join(gif_dir, '*')))
+    frames = []
+    for filename in filenames:
+        frames.append(imageio.imread(filename))
+
+    imageio.mimwrite(f'../figures/{gif_name}.gif', frames, format='GIF', fps=fps)
+
+    print('gif complete\n')
