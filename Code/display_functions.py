@@ -19,8 +19,6 @@ from sentinelsat.sentinel import SentinelAPI, read_geojson, geojson_to_wkt
 """
 Display Sentinel Data
 """
-
-
 def displayData(sentinelsat_options: dict):
 
     cwd = os.getcwd()
@@ -92,9 +90,7 @@ def displayData(sentinelsat_options: dict):
 """
 Display MIR Band with detected fire pixels
 """
-
-
-def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max': 24, 'lat_min': 38, 'lat_max': 40}, show=False):
+def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max': 24, 'lat_min': 38, 'lat_max': 40}, show=False, confirmed = True):
 
     # Get current directory and move into the data folder
     cwd = os.getcwd()
@@ -102,21 +98,26 @@ def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max':
 
     # Get list of available folders
     path_to_folders = sorted(glob.glob('*'))
-    print('Available Folders:')
-    for folder in path_to_folders:
-        print(folder)
 
     # Go into each folder and plot
-    print('\nDisplaying Potential Fire Pixels for Products:')
+    if confirmed: print('\nDisplaying Confirmed Fire Pixels for Products:')
+    else:         print('\nDisplaying Potential Fire Pixels for Products:')
     count = 0
     for folder in path_to_folders:
         count += 1
+        if confirmed: print(f'\n\tDisplaying Confirmed Fire Pixels for product {count}/{len(path_to_folders)}')
+        else:         print(f'\n\tDisplaying Potential Fire Pixels for product {count}/{len(path_to_folders)}')
 
         # Get values
         MIR = np.load(os.path.join(folder, 'F1_BT_fn.npy'))
         TIR = np.load(os.path.join(folder, 'F2_BT_in.npy'))
         DIF = MIR - TIR
-        potential_fire_pixel = np.load(os.path.join(folder, 'initThresh_MODIS.npy'))
+
+        if confirmed:
+            potential_fire_pixel = np.load(os.path.join(folder, 'confirmed_fire_pixels.npy'))
+        else:
+            potential_fire_pixel = np.load(os.path.join(folder, 'potential_fire_pixels.npy'))
+
         lat = np.load(os.path.join(folder, 'latitude_fn.npy'))
         lon = np.load(os.path.join(folder, 'longitude_fn.npy'))
 
@@ -128,9 +129,7 @@ def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max':
 
         # Add MIR Band
         cmap = cm.get_cmap('Spectral_r')
-        # plt.imshow(MIR, vmin=220, vmax=400, cmap=cmap)
-        plt.scatter(lon, lat, s=30, c=MIR, transform=ccrs.PlateCarree(),
-                    vmin=220, vmax=400, cmap=cmap, alpha=1)
+        plt.scatter(lon, lat, s=30, c=MIR, transform=ccrs.PlateCarree(), vmin=220, vmax=400, cmap=cmap, alpha=1)
         plt.colorbar()
 
         # Add Fire Pixels
@@ -139,23 +138,29 @@ def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max':
                     transform=ccrs.PlateCarree(), vmin=0, vmax=1, alpha=1, cmap=cmap)
 
         ax.coastlines()
-        ax.add_feature(cartopy.feature.OCEAN)
-        ax.add_feature(cartopy.feature.LAND)
+        # ax.add_feature(cartopy.feature.OCEAN)
+        # ax.add_feature(cartopy.feature.LAND)
         ax.gridlines(draw_labels=True)
 
         # Create title and show
-        plt.title(f"F1 Band with Potential Fire Pixels: {folder}")
-        plt.tight_layout()
-        plt.savefig(f'../../../figures/gif_files/fire_pixels/fire_pixels_{count}.png')
+        if confirmed:
+            plt.title(f"F1 Band with Confirmed Fire Pixels: {folder}")
+            plt.tight_layout()
+            plt.savefig(f'../../../figures/gif_files/confirmed_fire_pixels/confirmed_fire_pixels_{count}.png')
+        else:
+            plt.title(f"F1 Band with Potential Fire Pixels: {folder}")
+            plt.tight_layout()
+            plt.savefig(f'../../../figures/gif_files/potential_fire_pixels/potential_fire_pixels_{count}.png')
+
         if show:
             plt.show()
+
+    os.chdir(cwd)
 
 
 """
 Display MIR Bands for Cells
 """
-
-
 def displayCellValue(grid_info: dict, data_dir='s3_data'):
 
     id_map = grid_info['id_map']
@@ -211,12 +216,10 @@ def displayCellValue(grid_info: dict, data_dir='s3_data'):
 """
 Make a gif from files in a specified folder
 """
-
-
 def makeGIF(gif_name='fire_cells', gif_dir='../figures/gif_files/fire_cells', fps=1):
 
     # Build GIF
-    print(f'Creating Gif from: {gif_dir}')
+    print(f'\n\nCreating Gif from: \'{gif_dir}\' ')
 
     filenames = sorted(glob.glob(os.path.join(gif_dir, '*')))
     frames = []
@@ -225,4 +228,4 @@ def makeGIF(gif_name='fire_cells', gif_dir='../figures/gif_files/fire_cells', fp
 
     imageio.mimwrite(f'../figures/{gif_name}.gif', frames, format='GIF', fps=fps)
 
-    print('gif complete\n')
+    print('\t GIF complete\n')

@@ -1,19 +1,26 @@
 """
     30574 Earth observations for monitoring changes (EO4Change) Wildfire and Biomass Impacts.
 """
-
+##### Imports
+from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
+import os
 import glob
+
+# User defined functions
 from algorithm_functions import *
 from display_functions import *
 from prep_functions import *
-from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
-import os
-print('\n\n\n\n\n')
-
-# Import needed packages and external files
+from grid_functions import *
 
 
-# Define Data product Dictionaries
+print('\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n')
+print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+print('Running Main File:')
+print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n')
+
+
+
+##### Define Data product Dictionaries
 
 SENTINELSAT_DATE = ['20210806', '20210810']
 
@@ -57,7 +64,7 @@ SENTINELSAT2_OPTIONS = {
 # getSentSatData(sentinelsat_options=SENTINELSAT2_OPTIONS)
 
 # Used to look at files in S3 folders
-# lookAtData()
+lookAtData()
 
 # Display data
 # displayData(sentinelsat_options=SENTINELSAT_OPTIONS)
@@ -90,7 +97,7 @@ INITIAL_THRESHOLDS = {
 
 # Find the pixels that may hold active fires
 # findPotentialFirePixels(data_dir=SENTINELSAT_OPTIONS['data_dir'], thresholds=INITIAL_THRESHOLDS)
-makeGIF('potential_fires_FULL', '../figures/gif_files/potential_fires_FULL', 0.5)
+# makeGIF('potential_fires_FULL', '../figures/gif_files/potential_fires_FULL', 0.5)
 
 # Display Potential Fire displayFirePixels
 COORDINATES = {
@@ -99,30 +106,33 @@ COORDINATES = {
     'lat_min': 38,
     'lat_max': 40
 }
-# displayFirePixels(data_dir=SENTINELSAT_OPTIONS['data_dir'], coordinates=COORDINATES, show=False)
-# makeGIF('fire_pixels', '../figures/gif_files/fire_pixels', 0.5)
+# displayFirePixels(data_dir=SENTINELSAT_OPTIONS['data_dir'], coordinates=COORDINATES, show=False, confirmed=False)
+# makeGIF('potential_fire_pixels', '../figures/gif_files/potential_fire_pixels', 0.5)
 
 
 # calculateBackground(data_dir='s3_data')
 
-
 # confirmFirePixels()
 # makeGIF('confirmed_fire_pixels_full', '../figures/gif_files/confirmed_fire_pixels_full', 0.5)
 
+# displayFirePixels(data_dir=SENTINELSAT_OPTIONS['data_dir'], coordinates=COORDINATES, show=False, confirmed=True)
+# makeGIF('confirmed_fire_pixels', '../figures/gif_files/confirmed_fire_pixels', 0.5)
 
-# Create Grid
-RESOLUTION = 0.05
-grid_info = createGrid(res=RESOLUTION, coordinates=COORDINATES)
+# # Create Grid
+# RESOLUTION = 0.05
+# grid_info = createGrid(res=RESOLUTION, coordinates=COORDINATES)
 
-#  assign points to grid
-assignGridYN(grid_info=grid_info, data_dir=SENTINELSAT_OPTIONS['data_dir'])
+#  # assign points to grid
+# assignGridYN(grid_info=grid_info, data_dir=SENTINELSAT_OPTIONS['data_dir'])
+# makeGIF('grid_location', '../figures/gif_files/grid_location', 0.5)
 
-# Decrease Resolution based on gridYN
-assignGridID(grid_info=grid_info, data_dir=SENTINELSAT_OPTIONS['data_dir'])
+# # Decrease Resolution based on gridYN
+# assignGridID(grid_info=grid_info, data_dir=SENTINELSAT_OPTIONS['data_dir'])
+# makeGIF('grid', '../figures/gif_files/grid', 0.5)
 
-# Make cell averages
-makeCellAverage(grid_info=grid_info, data_dir=SENTINELSAT_OPTIONS['data_dir'])
+# # Make cell averages
+# makeCellAverage(grid_info=grid_info, data_dir=SENTINELSAT_OPTIONS['data_dir'])
 
-# Show cell averages
-displayCellValue(grid_info=grid_info, data_dir=SENTINELSAT_OPTIONS['data_dir'])
-makeGIF('fire_cells', '../figures/gif_files/fire_cells', 0.5)
+# # Show cell averages
+# displayCellValue(grid_info=grid_info, data_dir=SENTINELSAT_OPTIONS['data_dir'])
+# makeGIF('fire_cells', '../figures/gif_files/fire_cells', 0.5)
