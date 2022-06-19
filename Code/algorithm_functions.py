@@ -99,6 +99,7 @@ def maskClouds(data_dir='s3_data'):
         plt.imshow(cloud_mask)
         # plt.show()
         plt.savefig(f'../../../figures/gif_files/cloud_mask/cloud_mask_{count}.png')
+        plt.close()
 
         np.save(os.path.join(folder, 'cloud_mask'), cloud_mask)
 
@@ -137,6 +138,7 @@ def maskWater(data_dir='s3_data'):
         plt.title(f'NDVI: {folder}')
         plt.tight_layout()
         plt.savefig(f'../../../figures/gif_files/NDVI/NDVI_{count}.png')
+        plt.close()
         # plt.show()
 
         # Implement water mask
@@ -160,6 +162,7 @@ def maskWater(data_dir='s3_data'):
         plt.colorbar()
         plt.title(f'Water Mask: {folder}')
         plt.savefig(f'../../../figures/gif_files/water_mask/water_mask_{count}.png')
+        plt.close()
 
         np.save(os.path.join(folder, 'water_mask'), water_mask)
 
@@ -212,8 +215,8 @@ def findPotentialFirePixels(data_dir='s3_data', thresholds={'MIR': 310, 'DIF': 1
         plt.imshow(potential_fire_pixels)
         plt.colorbar()
         plt.title(f'potential_fires_FULL: {folder}')
-        plt.savefig(
-            f'../../../figures/gif_files/potential_fires_FULL/potential_fires_FULL_{count}.png')
+        plt.savefig(f'../../../figures/gif_files/potential_fires_FULL/potential_fires_FULL_{count}.png')
+        plt.close()
 
     os.chdir(cwd)
 
@@ -244,10 +247,10 @@ def calculateBackground(data_dir='s3_data'):
         DIF = np.load(os.path.join(folder, 'DIF.npy'))
         RED = np.load(os.path.join(folder, 'S2_reflectance_an.npy'))
 
-        # Bring in masks
+        # Bring in masks and sun glint info
         cloud_mask = np.load(os.path.join(folder, 'cloud_mask.npy'))
         water_mask = np.load(os.path.join(folder, 'water_mask.npy'))
-        # Create new mask based on sun glint value
+        glint_angle = np.load(os.path.join(folder, 'glint_angle.npy'))
 
         # Make valid_pixels (1= Valid, 0= not valid)
         # PAGE 32 ADD OTHER VALID CONDITIONS!!!!!
@@ -278,7 +281,7 @@ def calculateBackground(data_dir='s3_data'):
             for j in range(x_len):
 
                 if(i in np.arange(0, 1500, 50).astype(int) and j == 0):
-                    print(f'\tPixel Row:{i}')
+                    print(f'\t\tPixel Row:{i}')
 
                 # If a fire has been marked
                 if(potential_fire_pixels[i, j] == 1):
@@ -323,8 +326,8 @@ def calculateBackground(data_dir='s3_data'):
                                                     #### Now perform checks from the paper
                                                     # Check if this pixel is not a "Background fire pixel" Check 12c and 12d
                                                     if (MIR[ii,jj] < 325) and (DIF[ii,jj] < 20):
-                                                        #  12a)                        12b)                    ADD SUNGLINT CONDITION
-                                                        if (MIR[ii,jj] < MIR[i,j]) and (DIF[ii,jj] < DIF[i,j]):
+                                                        #  12a)                        12b)                    12e) SUNGLINT CONDITION
+                                                        if (MIR[ii,jj] < MIR[i,j]) and (DIF[ii,jj] < DIF[i,j]) and (glint_angle[i,j] < 2):
 
                                                             # This is a good background pixel!
                                                             num_background_pixels_valid += 1
@@ -419,6 +422,7 @@ def confirmFirePixels(data_dir='s3_data', thresholds={}):
         TIR = np.load(os.path.join(folder, 'F2_BT_in.npy'))
         DIF = np.load(os.path.join(folder, 'DIF.npy'))
         RED = np.load(os.path.join(folder, 'S2_reflectance_an.npy'))
+        glint_angle = np.load(os.path.join(folder, 'glint_angle.npy')) 
 
         pixel_background_mean_MIR = np.load(os.path.join(folder, 'pixel_background_mean_MIR.npy'))
         pixel_background_mean_TIR = np.load(os.path.join(folder, 'pixel_background_mean_TIR.npy'))
@@ -444,13 +448,13 @@ def confirmFirePixels(data_dir='s3_data', thresholds={}):
                 # If a fire has been marked
                 if(potential_fire_pixels[i, j] == 1):
 
-                    ##### Absolute Thresholds -> Accompany with sun glint mask
+                    ##### Absolute Thresholds #####
                     if(MIR[i, j] > 360):
                         confirmed_fire_pixels[i, j] = 1
 
-                    ##### Context Thresholds
+                    ##### Context Thresholds #####
                     # Context Thres 14a
-                    if((RED[i, j] / MIR[i, j]) > (pixel_background_mean_RED[i, j] / pixel_background_mean_MIR[i, j])):
+                    if ((RED[i, j] / MIR[i, j]) > (pixel_background_mean_RED[i, j] / pixel_background_mean_MIR[i, j])):
                         # 14b)
                         if (DIF[i,j] > pixel_background_mean_DIF[i,j] + 3.2*pixel_background_std_DIF[i,j] ):
                             # 14c) - Maggie's Favorite
@@ -472,7 +476,59 @@ def confirmFirePixels(data_dir='s3_data', thresholds={}):
         plt.imshow(confirmed_fire_pixels)
         plt.colorbar()
         plt.savefig(f'../../../figures/gif_files/confirmed_fire_pixels_full/confirmed_fire_pixels_full_{count}.png')
+        plt.close()
 
     os.chdir(cwd)
 
 
+
+"""
+Remove False Alarms
+"""
+def detectFalseAlarms(data_dir='s3_data', thresholds={}):
+
+    # Get current directory and move into the data folder
+    cwd = os.getcwd()
+    os.chdir(os.path.join(data_dir, 'inputs'))
+
+    # Go into each folder and calculate threshold for each product
+    print('\nDetecting False Alarms for Products:')
+    path_to_folders = sorted(glob.glob('*'))
+    count = 0
+    for folder in path_to_folders:
+        count += 1
+        print(f'\n\tDetecting False Alarms for product {count}/{len(path_to_folders)}')
+
+        # Bring in confirmed fire
+        confirmed_fire_pixels_FA_removed = np.load(os.path.join(folder, 'confirmed_fire_pixels.npy'))
+        # MIR = np.load(os.path.join(folder, 'F1_BT_fn.npy'))
+        # TIR = np.load(os.path.join(folder, 'F2_BT_in.npy'))
+        # DIF = np.load(os.path.join(folder, 'DIF.npy'))
+        RED = np.load(os.path.join(folder, 'S2_reflectance_an.npy'))
+        glint_angle = np.load(os.path.join(folder, 'glint_angle.npy')) 
+
+
+        # Thresholds
+        y_len = confirmed_fire_pixels_FA_removed.shape[0]
+        x_len = confirmed_fire_pixels_FA_removed.shape[1]
+        for i in range(y_len):
+            for j in range(x_len):
+
+                # If a fire has been marked
+                if(confirmed_fire_pixels_FA_removed[i, j] == 1):
+
+                    ##### False Alarm Elimination #####
+                    # print(RED.shape)
+                    if (RED[i,j] > 0.15): #or (glint_angle[i,j] < 2) : #### ADD FINAL CONDITION
+                        confirmed_fire_pixels_FA_removed[i, j] = 0
+
+        # Save confirmed fire pixels
+        np.save(os.path.join(folder, 'confirmed_fire_pixels_FA_removed'), confirmed_fire_pixels_FA_removed)
+
+        plt.figure()
+        plt.imshow(confirmed_fire_pixels_FA_removed)
+        plt.colorbar()
+        plt.savefig(f'../../../figures/gif_files/confirmed_fire_pixels_FA_removed/confirmed_fire_pixels_FA_removed_{count}.png')
+        plt.close()
+
+    os.chdir(cwd)

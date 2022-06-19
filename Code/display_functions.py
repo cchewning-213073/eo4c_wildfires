@@ -82,6 +82,7 @@ def displayData(sentinelsat_options: dict):
         ax.gridlines(draw_labels=True)
         plt.colorbar()
         plt.savefig(f'../../figures/gif_files/f1_band/f1_band_{count}.png')
+        plt.close()
         # plt.show()
 
     os.chdir(cwd)
@@ -90,7 +91,7 @@ def displayData(sentinelsat_options: dict):
 """
 Display MIR Band with detected fire pixels
 """
-def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max': 24, 'lat_min': 38, 'lat_max': 40}, show=False, confirmed = True):
+def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max': 24, 'lat_min': 38, 'lat_max': 40}, show=False, type = 'potential'):
 
     # Get current directory and move into the data folder
     cwd = os.getcwd()
@@ -100,23 +101,31 @@ def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max':
     path_to_folders = sorted(glob.glob('*'))
 
     # Go into each folder and plot
-    if confirmed: print('\nDisplaying Confirmed Fire Pixels for Products:')
-    else:         print('\nDisplaying Potential Fire Pixels for Products:')
+
+    if (type == 'potential'):
+        print('\nDisplaying Potential Fire Pixels for Products:')
+    elif (type == 'confirmed'):
+        print('\nDisplaying Confirmed Fire Pixels for Products:')
+    else:     
+        print('\nDisplaying Confirmed Fire Pixels with False Alarms Removed for Products:')    
+
+
     count = 0
     for folder in path_to_folders:
         count += 1
-        if confirmed: print(f'\n\tDisplaying Confirmed Fire Pixels for product {count}/{len(path_to_folders)}')
-        else:         print(f'\n\tDisplaying Potential Fire Pixels for product {count}/{len(path_to_folders)}')
+        print(f'\n\tProcessing Product {count}/{len(path_to_folders)}')
 
         # Get values
         MIR = np.load(os.path.join(folder, 'F1_BT_fn.npy'))
         TIR = np.load(os.path.join(folder, 'F2_BT_in.npy'))
         DIF = MIR - TIR
-
-        if confirmed:
+            
+        if type == 'potential':
+            potential_fire_pixel = np.load(os.path.join(folder, 'potential_fire_pixels.npy'))
+        elif type == 'confirmed':
             potential_fire_pixel = np.load(os.path.join(folder, 'confirmed_fire_pixels.npy'))
         else:
-            potential_fire_pixel = np.load(os.path.join(folder, 'potential_fire_pixels.npy'))
+            potential_fire_pixel = np.load(os.path.join(folder, 'confirmed_fire_pixels_FA_removed.npy'))
 
         lat = np.load(os.path.join(folder, 'latitude_fn.npy'))
         lon = np.load(os.path.join(folder, 'longitude_fn.npy'))
@@ -129,31 +138,40 @@ def displayFirePixels(data_dir='s3_data', coordinates={'lon_min': 22, 'lon_max':
 
         # Add MIR Band
         cmap = cm.get_cmap('Spectral_r')
-        plt.scatter(lon, lat, s=30, c=MIR, transform=ccrs.PlateCarree(), vmin=220, vmax=400, cmap=cmap, alpha=1)
+        plt.scatter(lon, lat, s=30, c=MIR, transform=ccrs.PlateCarree(), vmin=220, vmax=400, cmap=cmap, alpha=.25)
         plt.colorbar()
 
         # Add Fire Pixels
         cmap = cm.get_cmap('Reds', 2)
-        plt.scatter(lon, lat, s=1, c=potential_fire_pixel,
-                    transform=ccrs.PlateCarree(), vmin=0, vmax=1, alpha=1, cmap=cmap)
+        plt.scatter(lon, lat, s=10, c=potential_fire_pixel,
+                    transform=ccrs.PlateCarree(), vmin=0, vmax=1, alpha=0.5, cmap=cmap)
+
 
         ax.coastlines()
-        # ax.add_feature(cartopy.feature.OCEAN)
-        # ax.add_feature(cartopy.feature.LAND)
+        ax.add_feature(cartopy.feature.OCEAN)
+        ax.add_feature(cartopy.feature.LAND)
         ax.gridlines(draw_labels=True)
 
         # Create title and show
-        if confirmed:
-            plt.title(f"F1 Band with Confirmed Fire Pixels: {folder}")
-            plt.tight_layout()
-            plt.savefig(f'../../../figures/gif_files/confirmed_fire_pixels/confirmed_fire_pixels_{count}.png')
-        else:
+        if (type == 'potential'):
             plt.title(f"F1 Band with Potential Fire Pixels: {folder}")
             plt.tight_layout()
             plt.savefig(f'../../../figures/gif_files/potential_fire_pixels/potential_fire_pixels_{count}.png')
 
+        elif (type == 'confirmed'):
+            plt.title(f"F1 Band with Confirmed Fire Pixels: {folder}")
+            plt.tight_layout()
+            plt.savefig(f'../../../figures/gif_files/confirmed_fire_pixels/confirmed_fire_pixels_{count}.png')
+        
+        else:
+            plt.title(f"F1 Band with Confirmed Fire Pixels\nFalse Alarms Removed: {folder}")
+            plt.tight_layout()
+            plt.savefig(f'../../../figures/gif_files/confirmed_fire_pixels_FA_removed/confirmed_fire_pixels_FA_removed_{count}.png')
+            
         if show:
             plt.show()
+
+        plt.close()
 
     os.chdir(cwd)
 
@@ -209,6 +227,7 @@ def displayCellValue(grid_info: dict, data_dir='s3_data'):
         plt.tight_layout()
         # plt.show()
         plt.savefig(f'../../../figures/gif_files/fire_cells/fire_cells_{count}.png')
+        plt.close()
 
     os.chdir(cwd)
 

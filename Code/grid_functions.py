@@ -118,6 +118,7 @@ def assignGridYN(grid_info: dict, data_dir='s3_data'):
         # plt.scatter(lon, lat, s=10, c=gridYN, transform=ccrs.PlateCarree())
         plt.imshow(dummygrid)
         plt.savefig(f'../../../figures/gif_files/grid_location/grid_location_{count}.png')
+        plt.close()
         # plt.show()
 
     os.chdir(cwd)
@@ -193,6 +194,7 @@ def assignGridID(grid_info: dict, data_dir='s3_data'):
         ax = plt.axes(projection=ccrs.PlateCarree())
         plt.scatter(lon, lat, s=10, c=pixel_cellid, transform=ccrs.PlateCarree())
         plt.savefig(f'../../../figures/gif_files/grid/grid_{count}.png')
+        plt.close()
         # plt.show()
 
     os.chdir(cwd)

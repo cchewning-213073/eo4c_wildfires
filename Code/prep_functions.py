@@ -23,9 +23,10 @@ def lookAtData(data_dir='s3_data', basedir='S3A_SL_1_RBT____20210806T081630_2021
     cwd = os.getcwd()
     os.chdir(data_dir)
 
-    files = glob.glob(basedir+os.sep+'S2_quality_an.nc')
+    files = glob.glob(basedir+os.sep+'FRP_in.nc')
     for ff in files:
         print(ff)
+    print()
 
     dummyFile = files[0]  # Looking at the first datafile
 
@@ -159,7 +160,7 @@ Return Data necessary for Initial Thresholds:
 """
 
 
-def getProducts(data_dir='s3_data'):
+def getProducts(data_dir='s3_data', file_list = []):
 
     # Get current directory and move into the data folder
     cwd = os.getcwd()
@@ -167,7 +168,7 @@ def getProducts(data_dir='s3_data'):
 
     # Get list of available folders
     path_to_folders = sorted(glob.glob('*.SEN3'))
-    print('Available Folders:')
+    print('\nAvailable Folders:')
     for folder in path_to_folders:
         print(folder)
 
@@ -176,7 +177,7 @@ def getProducts(data_dir='s3_data'):
     count = 0
     for folder in path_to_folders:
         count += 1
-        print(f'\nExtracting Product {count}/{len(path_to_folders)}')
+        print(f'\n\tExtracting Product {count}/{len(path_to_folders)}')
 
         # Get product date - S3A_SL_1_RBT____20210809T195551_20210809T195851_20210811T075833_0180_075_071_0540_LN2_O_NT_004.SEN3
         product_sat = folder[:3]
@@ -189,23 +190,10 @@ def getProducts(data_dir='s3_data'):
         # Create folder in inputs to hold the created files
         os.makedirs(os.path.join('inputs', new_folder_name), exist_ok=True)
 
-        # List of wanted files
-        file_list = ['F1_BT_fn.nc',
-                     'F2_BT_in.nc',
-                     'S7_BT_in.nc',
-                     'S8_BT_in.nc',
-                     'S9_BT_in.nc',
-                     'geodetic_fn.nc',
-                     'geodetic_in.nc',
-                     'S2_radiance_an.nc',
-                     'S3_radiance_an.nc',
-                     'S6_radiance_an.nc',
-                     'geometry_tn.nc', 'geodetic_tx.nc',
-                     'S2_quality_an.nc', 'S3_quality_an.nc', 'S6_quality_an.nc']
 
         for file in file_list:
 
-            print(f'\tMoving file {file}')
+            print(f'\t\tMoving file {file}')
             file_path = glob.glob(folder+os.sep+file)[0]
 
             with Dataset(file_path) as src:
@@ -235,7 +223,7 @@ def getProducts(data_dir='s3_data'):
                         np.save(os.path.join(os.path.join('inputs', new_folder_name), bandName), bandData)
 
                     # Get coordinates
-                    elif file[:11] == 'geodetic_fn':
+                    if file[:11] == 'geodetic_fn':
                         data = Dataset(file_path)
                         data.set_auto_mask(False)
                         lat_fn = data.variables['latitude_fn'][:]
@@ -247,12 +235,33 @@ def getProducts(data_dir='s3_data'):
                         np.save(os.path.join(os.path.join(
                             'inputs', new_folder_name), 'longitude_fn'), lon_fn)
 
-                    # Get solar zenith
+                    # Get Zenith and Azmith values
                     if 'solar_zenith_tn' in band:
                         bandName = band
                         data = Dataset(file_path)
                         data.set_auto_mask(False)
                         solar_zenith_tn = data.variables[bandName][:]
+                        data.close()
+
+                    if 'sat_zenith_tn' in band:
+                        bandName = band
+                        data = Dataset(file_path)
+                        data.set_auto_mask(False)
+                        sat_zenith_tn = data.variables[bandName][:]
+                        data.close()
+
+                    if 'solar_azimuth_tn' in band:
+                        bandName = band
+                        data = Dataset(file_path)
+                        data.set_auto_mask(False)
+                        solar_azimuth_tn = data.variables[bandName][:]
+                        data.close()
+
+                    if 'sat_azimuth_tn' in band:
+                        bandName = band
+                        data = Dataset(file_path)
+                        data.set_auto_mask(False)
+                        sat_azimuth_tn = data.variables[bandName][:]
                         data.close()
 
                     if file[:11] == 'geodetic_tx':
@@ -269,14 +278,51 @@ def getProducts(data_dir='s3_data'):
                         data.set_auto_mask(False)
                         solar_irradiance_an = data.variables[bandName][:]
                         data.close()
-                        np.save(os.path.join(os.path.join(
-                            'inputs', new_folder_name), bandName), solar_irradiance_an)
+                        np.save(os.path.join(os.path.join('inputs', new_folder_name), bandName), solar_irradiance_an)
+
+                    if 'flags' in band:
+                        bandName = band
+                        data = Dataset(file_path)
+                        data.set_auto_mask(False)
+                        FRP = data.variables[bandName][:]
+                        data.close()
+                        np.save(os.path.join(os.path.join('inputs', new_folder_name), bandName), FRP)
 
         # Take zenith inputs and expand grid to what we want
-        solar_zenith_angle = griddata((lat_tx.flatten(), lon_tx.flatten()),
-                                      solar_zenith_tn.flatten(), (lat_fn, lon_fn), method='linear')
-        np.save(os.path.join(os.path.join(
-            'inputs', new_folder_name), 'solar_zenith_angle'), solar_zenith_angle)
+        if (data_dir=='s3_data'):
+            solar_zenith_angle = griddata((lat_tx.flatten(), 
+                                           lon_tx.flatten()),
+                                           solar_zenith_tn.flatten(), 
+                                           (lat_fn, lon_fn), 
+                                           method='linear')
+
+            sat_zenith_angle = griddata((lat_tx.flatten(), 
+                                         lon_tx.flatten()),
+                                         sat_zenith_tn.flatten(), 
+                                         (lat_fn, lon_fn), 
+                                         method='linear')
+
+            solar_azimuth_angle = griddata((lat_tx.flatten(), 
+                                         lon_tx.flatten()),
+                                         solar_azimuth_tn.flatten(), 
+                                         (lat_fn, lon_fn), 
+                                         method='linear')
+
+            sat_azimuth_angle = griddata((lat_tx.flatten(), 
+                                         lon_tx.flatten()),
+                                         sat_azimuth_tn.flatten(), 
+                                         (lat_fn, lon_fn), 
+                                         method='linear')
+
+            # Calculate Glint
+            glint_angle = np.cos(sat_zenith_angle)*np.cos(solar_zenith_angle) - np.sin(sat_zenith_angle)*np.sin(solar_zenith_angle)*np.cos(np.abs(solar_azimuth_angle-sat_azimuth_angle))
+
+
+            np.save(os.path.join(os.path.join('inputs', new_folder_name), 'solar_zenith_angle'), solar_zenith_angle)
+            np.save(os.path.join(os.path.join('inputs', new_folder_name), 'glint_angle'), glint_angle)
+            # np.save(os.path.join(os.path.join('inputs', new_folder_name), 'sat_zenith_angle'), sat_zenith_angle)
+            # np.save(os.path.join(os.path.join('inputs', new_folder_name), 'solar_azimuth_angle'), solar_azimuth_angle)
+            # np.save(os.path.join(os.path.join('inputs', new_folder_name), 'sat_azimuth_angle'), sat_azimuth_angle)
 
     # Once done with everything, return to cwd
     os.chdir(cwd)
